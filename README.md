@@ -32,7 +32,7 @@ socket.sendto(data, ("2001:4860:4860::8888", 8888))
 # receive data from the previously used IP.
 # socket is still open from the 'sendto' operation
 (resp, address) = socket.recvfrom()
-print("Response: from ip:" + address[0] + ", port: " + address[1] + ", data: " + resp)
+print("Response: from ip:" + address[0] + ", port: " + str(address[1]) + ", data: " + str(binascii.hexlify(bytearray(resp))))
 
 # close socket
 socket.close()
