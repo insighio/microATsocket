@@ -10,10 +10,10 @@ import ure
 ## number of bytes (https://github.com/pycom/pycom-micropython-sigfox/pull/429)
 ##
 
-def enum(**enums):
-    return type('Enum', (), enums)
-
 class MicroATSocket:
+    def enum(**enums):
+        return type('Enum', (), enums)
+
     SOCKET_MESSAGE_FORMAT = enum(
         SOCKET_MESSAGE_ASCII = 0,
         SOCKET_MESSAGE_BYTE = 1

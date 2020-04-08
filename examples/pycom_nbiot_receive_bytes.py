@@ -54,7 +54,7 @@ if(attached):
         # receive data opened socket.
         (resp, address) = socket.recvfrom()
         if(resp != None and address != None):
-            print("Response: from ip:" + address[0] + ", port: " + address[1] + ", data: " + resp)
+            print("Response: from ip:" + address[0] + ", port: " + str(address[1]) + ", data: " + str(binascii.hexlify(bytearray(resp))))
         else:
             print("No data received")
 
