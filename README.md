@@ -1,7 +1,7 @@
 # microATsocket
-A UDP socket implementation for Pycom devices based on Sequans AT commands that supports IPv6
+A UDP socket implementation for Pycom devices based on Sequans AT commands that supports IPv4/IPv6
 
-Pycom devices (GPy, FiPy) that contain LTE CAT M1/NB1 modem of Sequans have a perfectly good support of usockets over LTE networks. They are based on the lwIP (lightweight IP) sockets included in the esp-idf (Espressif IoT Development Framework) and through PPP connection to the modem, they communicate to the outside world. They only major drawback is that in the current implementation of micropython / esp-idf / usocket there is no support to IPv6 sockets.
+Pycom devices (GPy, FiPy) that contain LTE CAT M1/NB1 modem of Sequans have a perfectly good support of usockets over LTE networks. They are based on the lwIP (lightweight IP) sockets included in the esp-idf (Espressif IoT Development Framework) and through a PPP connection between the system and the modem, they communicate to the outside world. They only major drawback is that in the current implementation of micropython / esp-idf / usocket there is no support to IPv6 sockets.
 
 Meanwhile, many LTE CAT M1/NB1 networks operate with IPv6 only, thus making the Pycom device unusable.
 
@@ -54,6 +54,19 @@ That is:
 
 Since in this socket implementation, all data are transferred through AT commands, this limitation directly affects the socket implementation as we can not send the maximum amount of data the modem can handle which is 1500 bytes per transfer.
 
-Moreover, in case we require to send byte data instead of ascii messages, the bytes need to be expressed into a HEX string. In this case each byte is represented by 2 HEX characters thus limiting our maximum data per transmission from 124 character to 62 bytes.
+Moreover, in case we require to send byte data instead of ASCII messages, the bytes need to be expressed into a HEX string. In this case each byte is represented by 2 HEX characters thus limiting our maximum data per transmission from 124 character to 62 bytes. This approach is the default behavior of MicroATSocket to be able to handle any data provided.
 
-To bypass this limitation and unlock the full capabilities of the modem, you will need to build a custom version of Pycom firmware using the [Pull Request 429](https://github.com/pycom/pycom-micropython-sigfox/pull/429) (at least till the time that this README has been written 08 Apr 2020). Should this fix is applied to the modem, it will increase the AT command length from 124 bytes to 1500 bytes which is the limit of the modem.
+To enable the transmission of ASCII data and increase the limit for 62 bytes to 124 characters, after creating the instance of the socket, set the message format of the socket to SOCKET_MESSAGE_ASCII (check examples/pycom_nbiot_send_receive_text.py)
+
+```python
+socket = MicroATSocket(lte)
+socket.setMessageFormat(MicroATSocket.SOCKET_MESSAGE_FORMAT.SOCKET_MESSAGE_ASCII)
+```
+
+### How to bypass the AT command length limitation
+
+To bypass this limitation and unlock the full capabilities of the modem, you will need to build a custom version of Pycom firmware using the [Pull Request 429](https://github.com/pycom/pycom-micropython-sigfox/pull/429) (at least for the time being, till the Pull Request is accepted). Should this fix is applied to the Pycom device, it will increase the AT command length from 124 bytes to 3000 characters which is the limit of the modem (3000 HEX characters -> 1500 bytes).
+
+# Future work and issues
+
+The socket implementation can be expanded greatly so new features can be added based on suggestions. 
