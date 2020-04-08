@@ -39,7 +39,7 @@ socket.close()
 
 ```
 
-For more detailed examples, take a look at the examples folder of the repository.
+For more detailed examples, take a look at the [examples folder](https://github.com/insighio/microATsocket/tree/master/examples) of the repository.
 
 # Notes
 
@@ -56,7 +56,7 @@ Since in this socket implementation, all data are transferred through AT command
 
 Moreover, in case we require to send byte data instead of ASCII messages, the bytes need to be expressed into a HEX string. In this case each byte is represented by 2 HEX characters thus limiting our maximum data per transmission from 124 character to 62 bytes. This approach is the default behavior of MicroATSocket to be able to handle any data provided.
 
-To enable the transmission of ASCII data and increase the limit for 62 bytes to 124 characters, after creating the instance of the socket, set the message format of the socket to SOCKET_MESSAGE_ASCII (check examples/pycom_nbiot_send_receive_text.py)
+To enable the transmission of ASCII data and increase the limit for 62 bytes to 124 characters, after creating the instance of the socket, set the message format of the socket to **SOCKET_MESSAGE_ASCII** (check [examples/pycom_nbiot_send_receive_text.py](https://github.com/insighio/microATsocket/blob/master/examples/pycom_nbiot_send_receive_text.py))
 
 ```python
 socket = MicroATSocket(lte)
@@ -65,7 +65,9 @@ socket.setMessageFormat(MicroATSocket.SOCKET_MESSAGE_FORMAT.SOCKET_MESSAGE_ASCII
 
 ### How to bypass the AT command length limitation
 
-To bypass this limitation and unlock the full capabilities of the modem, you will need to build a custom version of Pycom firmware using the [Pull Request 429](https://github.com/pycom/pycom-micropython-sigfox/pull/429) (at least for the time being, till the Pull Request is accepted). Should this fix is applied to the Pycom device, it will increase the AT command length from 124 bytes to 3000 characters which is the limit of the modem (3000 HEX characters -> 1500 bytes).
+To bypass this limitation and unlock the full capabilities of the modem, you will need to build a custom version of Pycom firmware using the [Pull Request 429](https://github.com/pycom/pycom-micropython-sigfox/pull/429) (at least for the time being, till the Pull Request is accepted). 
+
+Should this fix is applied to the Pycom device, it will increase the AT command length from 124 bytes to 3000 characters which is the limit of the modem (3000 HEX characters -> 1500 bytes).
 
 # Future work and issues
 
