@@ -1,0 +1,3 @@
+[submodule "examples/dns-query"]
+	path = examples/dns_query
+	url = https://github.com/insighio/DNS-Client
