@@ -28,7 +28,15 @@ class MicroATSocket:
         self.modem = modem
         self.contentFormat = MicroATSocket.SOCKET_MESSAGE_FORMAT.SOCKET_MESSAGE_BYTE
 
-    def sendAtCommand(self, command, timeout = 11000):
+    # If stock firmware is used, this function needs to be used
+    def sendAtCommand(self, command):
+        print("[AT] => " + str(command))
+        response = self.modem.send_at_cmd(command)
+        print("[AT] <= " + response)
+        return response
+
+    # This function is not supported yet by the stop Pycom firmware
+    def sendAtCommandWithTimeout(self, command, timeout):
         print("[AT] => " + str(command))
         response = self.modem.send_at_cmd(command, timeout)
         print("[AT] <= " + response)
@@ -111,7 +119,11 @@ class MicroATSocket:
 
         response = self.sendAtCommand('AT+SQNSSENDEXT=1,' + str(byteLength))
 
-        response = self.sendAtCommand(arrayHexBytes, 15000)
+        #deactivating the timeout argument for now as it is not compatible
+        #with the stock Pycom firmware.
+        #response = self.sendAtCommand(arrayHexBytes, 15000)
+
+        response = self.sendAtCommand(arrayHexBytes)
 
         return len(bytes)
 
