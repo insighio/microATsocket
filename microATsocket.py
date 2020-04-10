@@ -2,6 +2,7 @@ from network import LTE
 import utime
 import binascii
 import ure
+import uos
 
 # Values acquired from pycom firmware
 # pycom-micropython-sigfox/lib/lwip/src/include/lwip/sockets.h
@@ -14,6 +15,36 @@ SOCK_RAW    = 3  #not supported
 
 DNS_SERVER_IP   = "8.8.8.8"
 DNS_SERVER_IPV6 = "2001:4860:4860::8888"
+
+LOCAL_PORT_DEFAULT = 8080
+
+# MAX 6 sockets. limitation imposed by Sequans +1 for indexing convenience
+#[<dummy>, <sock1>, <sock2>, <sock3>, <sock4>, <sock5>]
+# <sock6> reserved for DNS
+sockets_in_use = [0, 0, 0, 0, 0, 0, 0]
+
+def has_available_sockets():
+    for sock in sockets_in_use:
+        if(sock == 0):
+            return True
+    return False
+
+def get_first_available_socket():
+    for idx, val in enumerate(sockets_in_use):
+        if(idx == 0):
+            continue
+        if(val == 0):
+            sockets_in_use[idx] = 1
+            return idx
+    return 0
+
+def release_socket(idx):
+    if(idx < 1 or idx > len(sockets_in_use)):
+        return False
+
+    sockets_in_use[idx] = 0
+    return True
+
 
 ################################################################################
 ## Custom socket implementation
@@ -34,8 +65,6 @@ class socket:
     # usocket compatible functions
 
     def __init__(self, family, type):
-        print("CustomSocket: init")
-
         if(family != AF_INET and family != AF_INET6 ):
             raise Exception("address family not supported")
 
@@ -44,7 +73,8 @@ class socket:
 
         self.ip = None
         self.port = None
-        self.localport = 8888
+        self.localport = LOCAL_PORT_DEFAULT
+        self.hasExplicitLocalPort = False
         self.socketid = None
         self.family = family
         self.type = type
@@ -59,7 +89,10 @@ class socket:
 
         ipv6_only = (self.family == AF_INET6)
 
-        resolvedIPs = dns_query.dns_resolve(self, host, self.dns_server, ipv6_only)
+        sock = socket(self.family, SOCK_DGRAM)
+        sock.setModemInstance(self.modem)
+        resolvedIPs = dns_query.dns_resolve(sock, host, self.dns_server, ipv6_only, True)
+        sock.close()
 
         responseList = []
         for res in resolvedIPs:
@@ -72,12 +105,16 @@ class socket:
         return responseList
 
     def close(self):
-        #if self.socketid != None:
-        self.sendAtCommand('AT+SQNSH=1')
-        self.socketid = None
+        if self.socketid != None:
+            global sockets_in_use
+            self.sendAtCommand('AT+SQNSH=' + str(self.socketid))
+            utime.sleep_ms(2000)
+            release_socket(self.socketid)
+            self.reset()
 
     def bind(self, address):
-        self.socketid = address[1]
+        self.localport = address[1]
+        self.hasExplicitLocalPort = True
 
     def sendto(self, bytes, address):
         ip = address[0]
@@ -87,8 +124,6 @@ class socket:
             print("Failed to open socket, aborting.")
             return -1
 
-        #if respones is OK continue
-
         arrayHexBytes = bytes
 
         # if format is BYTE, convert the byte array to hex string
@@ -97,7 +132,7 @@ class socket:
 
         byteLength = len(bytes)
 
-        response = self.sendAtCommand('AT+SQNSSENDEXT=1,' + str(byteLength))
+        response = self.sendAtCommand('AT+SQNSSENDEXT=' + str(self.socketid) + ',' + str(byteLength))
 
         #deactivating the timeout argument for now as it is not compatible
         #with the stock Pycom firmware.
@@ -120,6 +155,10 @@ class socket:
         # search for the URC
         match = ure.search(self.recvRegex, resp)
         if match == None:
+            return badResult
+
+        # if the data comes from an other active socket
+        if(match.group(1) != str(self.socketid)):
             return badResult
 
         # +SQNSRING -> get notified of incoming data
@@ -174,36 +213,24 @@ class socket:
         else:
             self.contentFormat = socket.SOCKET_MESSAGE_FORMAT.SOCKET_MESSAGE_ASCII
 
-    ######################################################################
-    # Private functions
-
-    # If stock firmware is used, this function needs to be used
-    def sendAtCommand(self, command):
-        if self.modem == None:
-            raise Exception("No modem instance assigned")
-        print("[AT] => " + str(command))
-        response = self.modem.send_at_cmd(command)
-        print("[AT] <= " + response)
-        return response
-
-    # This function is not supported yet by the stop Pycom firmware
-    def sendAtCommandWithTimeout(self, command, timeout):
-        if self.modem == None:
-            raise Exception("No modem instance assigned")
-        print("[AT] => " + str(command))
-        response = self.modem.send_at_cmd(command, timeout)
-        print("[AT] <= " + response)
-        return response
-
     def open(self, ip, port):
-        if(self.ip == ip or self.port == port and self.socketid != None):
+        selfSockIsNone = self.socketid != None
+        if(self.ip == ip or self.port == port and selfSockIsNone):
             return True
+
+        if(not has_available_sockets()):
+            raise Exception("max number of sockets reached")
 
         if(self.ip == None and self.port == None) or (self.socketid != None):
             self.ip = ip
             self.port = port
             self.socketid = None
             self.close()
+
+        self.socketid = get_first_available_socket()
+
+        if not self.hasExplicitLocalPort:
+            self.localport = LOCAL_PORT_DEFAULT + (int.from_bytes(uos.urandom(2),"big") % 2000)
 
         contentFormatID = '0'
         if(self.contentFormat == socket.SOCKET_MESSAGE_FORMAT.SOCKET_MESSAGE_BYTE):
@@ -218,21 +245,66 @@ class socket:
         #               <sendDataMode as HEX>
         #               <unused>,
         #               <unused>
-        self.sendAtCommand('AT+SQNSCFGEXT=1,1,' + contentFormatID + ',0,0,' + contentFormatID + ',0,0')
+        configuration = str(self.socketid) + ',1,' + contentFormatID + ',0,0,' + contentFormatID + ',0,0'
+        resp = self.sendAtCommand('AT+SQNSCFGEXT?')
+
+        if(resp.find(configuration) == -1):
+            self.sendAtCommand('AT+SQNSCFGEXT='+configuration)
 
         # <socket ID>, <UDP>, <remote port>, <remote IP>,0,<local port>, <online mode>
-        command = 'AT+SQNSD=1,1,' + str(port) + ',"' + ip + '",0,' + str(self.localport) + ',1'
-        response = self.sendAtCommand(command)
-        if(response.find("OK") == -1):
-            utime.sleep_ms(5000)
-            # retry
-            response = self.sendAtCommand(command)
-
-            if(response.find("OK") != -1):
-                self.socketid = 1
-        else:
+        command = 'AT+SQNSD=' + str(self.socketid) + ',1,' + str(port) + ',"' + ip + '",0,' + str(self.localport) + ',1'
+        response = self.sendAtCommand(command, 4)
+        if(response.find("OK") != -1):
             self.socketid = 1
+        else:
+            self.socketid = None
 
         status = (self.socketid != None)
 
         return status
+
+    ######################################################################
+    # Private functions
+
+    def reset(self):
+        self.localport = LOCAL_PORT_DEFAULT
+        self.hasExplicitLocalPort = False
+        self.socketid = None
+
+    # If stock firmware is used, this function needs to be used
+    def sendAtCommand(self, command, max_tries=1):
+        if self.modem == None:
+            raise Exception("No modem instance assigned")
+
+        response = ""
+        cnt = 0
+        while True:
+            cnt += 1
+            #print("[AT] => " + str(command))
+            response = self.modem.send_at_cmd(command)
+            #print("[AT] <= " + response)
+
+            if(response.find("OK") != -1 or cnt == max_tries):
+                break
+            else:
+                utime.sleep_ms(5000)
+
+        return response
+
+    # This function is not supported yet by the stop Pycom firmware
+    def sendAtCommandWithTimeout(self, command, timeout, max_tries=1):
+        if self.modem == None:
+            raise Exception("No modem instance assigned")
+
+        response = ""
+        cnt = 0
+        while True:
+            cnt += 1
+            # print("[AT] => " + str(command))
+            response = self.modem.send_at_cmd(command, timeout)
+            # print("[AT] <= " + response)
+
+            if(response.find("OK") != -1 or cnt == max_tries):
+                break
+
+        return response

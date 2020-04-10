@@ -9,7 +9,50 @@ A solution to this is to bypass the build-in network interface controllers and c
 
 # How To Use
 
+First make sure you have the submodules needed.
+
+```bash
+git submodule update --init
+```
+
 The API is quite simple. It is based on the usocket API implementing the minimum set of functionality to be usable. So it is a drop-in replacement of the typical socket.
+
+## Example with IP
+```python
+import microATsocket as socket
+from network import LTE
+
+lte = LTE()
+
+# attach to network
+# ...
+
+#message as bytes
+data = bytearray('{data:"testmessage"}')
+
+# create socket instance providing the instance of the LTE modem
+sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+sock.setModemInstance(lte)
+
+# send data to specific IP (dummy IP and port used as example)
+sock.sendto(data, ("2001:4860:4860::8888", 8080))
+
+# receive data from the previously used IP.
+# socket is still open from the 'sendto' operation
+(resp, address) = sock.recvfrom()
+print("Response: from ip:" + address[0] + ", port: " + str(address[1]) + ", data: " + str(binascii.hexlify(bytearray(resp))))
+
+# close socket
+sock.close()
+
+```
+
+## Example with URL resolve
+
+The socket.getaddrinfo implementation has a deviation from the typical usocket.getaddrinfo.
+In microAtsocket it need to be called on the 
+Whereas the usocket implementation of getaddrinfo is
+The socket.getaddrinfo implementation included
 
 ```python
 import microATsocket as socket
@@ -27,6 +70,7 @@ data = bytearray('{data:"testmessage"}')
 sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
 sock.setModemInstance(lte)
 
+# getaddrinfo needs to be called on the instance of socket
 resolvedIPs = sock.getaddrinfo("google.com", 5683)
 
 # send data to specific IP (dummy IP and port used as example)
