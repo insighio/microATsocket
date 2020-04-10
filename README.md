@@ -12,7 +12,7 @@ A solution to this is to bypass the build-in network interface controllers and c
 The API is quite simple. It is based on the usocket API implementing the minimum set of functionality to be usable. So it is a drop-in replacement of the typical socket.
 
 ```python
-from microATsocket import MicroATSocket
+import microATsocket as socket
 from network import LTE
 
 lte = LTE()
@@ -24,18 +24,21 @@ lte = LTE()
 data = bytearray('{data:"testmessage"}')
 
 # create socket instance providing the instance of the LTE modem
-socket = MicroATSocket(lte)
+sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+sock.setModemInstance(lte)
+
+resolvedIPs = sock.getaddrinfo("google.com", 5683)
 
 # send data to specific IP (dummy IP and port used as example)
-socket.sendto(data, ("2001:4860:4860::8888", 8888))
+sock.sendto(data, resolvedIPs[0][-1])
 
 # receive data from the previously used IP.
 # socket is still open from the 'sendto' operation
-(resp, address) = socket.recvfrom()
+(resp, address) = sock.recvfrom()
 print("Response: from ip:" + address[0] + ", port: " + str(address[1]) + ", data: " + str(binascii.hexlify(bytearray(resp))))
 
 # close socket
-socket.close()
+sock.close()
 
 ```
 
@@ -65,10 +68,10 @@ socket.setMessageFormat(MicroATSocket.SOCKET_MESSAGE_FORMAT.SOCKET_MESSAGE_ASCII
 
 ### How to bypass the AT command length limitation
 
-To bypass this limitation and unlock the full capabilities of the modem, you will need to build a custom version of Pycom firmware using the [Pull Request 429](https://github.com/pycom/pycom-micropython-sigfox/pull/429) (at least for the time being, till the Pull Request is accepted). 
+To bypass this limitation and unlock the full capabilities of the modem, you will need to build a custom version of Pycom firmware using the [Pull Request 429](https://github.com/pycom/pycom-micropython-sigfox/pull/429) (at least for the time being, till the Pull Request is accepted).
 
 Should this fix is applied to the Pycom device, it will increase the AT command length from 124 bytes to 3000 characters which is the limit of the modem (3000 HEX characters -> 1500 bytes).
 
 # Future work and issues
 
-The socket implementation can be expanded greatly so new features can be added based on suggestions. 
+The socket implementation can be expanded greatly so new features can be added based on suggestions.
