@@ -4,7 +4,7 @@ import utime
 import binascii
 import dns_query
 
-from microATsocket import MicroATSocket
+import microATsocket as socket
 
 _NBIOT_MAX_CONNECTION_TIMEOUT_MSEC=30000
 _NBIOT_APN="iot"
@@ -40,17 +40,16 @@ attached = attachNBIoT(_NBIOT_MAX_CONNECTION_TIMEOUT_MSEC)
 print("LTE ok: " + str(attached))
 
 if(attached):
-    socket = MicroATSocket(lte)
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+    sock.setModemInstance(lte)
 
-    url='google.com'
-    dns_server="2001:4860:4860::8888"
-    ipv6_only = True
+    resolvedIPs = sock.getaddrinfo("google.com", 5683)
 
-    resolvedIPs = dns_query.dns_resolve(socket, url, dns_server, ipv6_only)
-
-    print("Resolved IP list: " + str(resolvedIPs))
+    print("Dns response: " + str(resolvedIPs))
+    if(len(resolvedIPs) > 0):
+        print("Resolved IP: " + str(resolvedIPs[0][-1][0]))
 
     #close socket
-    socket.close()
+    sock.close()
 
 lte.detach()

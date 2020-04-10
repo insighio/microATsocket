@@ -3,7 +3,7 @@ import machine
 import utime
 import binascii
 
-from microATsocket import MicroATSocket
+import microATsocket as socket
 
 _NBIOT_MAX_CONNECTION_TIMEOUT_MSEC=30000
 _NBIOT_APN="iot"
@@ -42,23 +42,24 @@ if(attached):
     data = '{data:"testmessage"}'
 
     # create socket instance providing the instance of the LTE modem
-    socket = MicroATSocket(lte)
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+    sock.setModemInstance(lte)
 
     # set that the incoming/outgoing data are simple ASCII characters
-    socket.setMessageFormat(MicroATSocket.SOCKET_MESSAGE_FORMAT.SOCKET_MESSAGE_ASCII)
+    sock.setMessageFormat(MicroATSocket.SOCKET_MESSAGE_FORMAT.SOCKET_MESSAGE_ASCII)
 
     # send data to specific IP
-    socket.sendto(data, ("2001:4860:4860::8888", 8888))
+    sock.sendto(data, ("2001:4860:4860::8888", 8888))
 
     # receive data from the previously used IP.
     # socket is still open from the 'sendto' operation
-    (resp, address) = socket.recvfrom()
+    (resp, address) = sock.recvfrom()
     if(resp != None and address != None):
         print("Response: from ip:" + address[0] + ", port: " + str(address[1]) + ", data: " + str(binascii.hexlify(bytearray(resp))))
     else:
         print("No data received")
 
     # close socket
-    socket.close()
+    sock.close()
 
 LTE().detach()
