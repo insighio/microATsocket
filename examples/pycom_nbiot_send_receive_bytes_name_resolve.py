@@ -33,8 +33,8 @@ def attachNBIoT(timeout):
 
 print("Initializing LTE...")
 lte = LTE()
+#lte.debug(status=True)
 lte.init()
-lte.debug(status=True)
 
 attached = attachNBIoT(_NBIOT_MAX_CONNECTION_TIMEOUT_MSEC)
 print("LTE ok: " + str(attached))
@@ -57,15 +57,18 @@ if(attached):
     print(resolvedIPs)
     # send data to specific IP
     if(len(resolvedIPs) > 0):
-        sock.sendto(data, resolvedIPs[0][-1])
+        bytesTransferred = sock.sendto(data, resolvedIPs[0][-1])
 
         # receive data from the previously used IP.
         # socket is still open from the 'sendto' operation
-        (resp, address) = sock.recvfrom()
-        if(resp != None and address != None):
-            print("Response: from ip:" + address[0] + ", port: " + str(address[1]) + ", data: " + str(binascii.hexlify(bytearray(resp))))
+        if(bytesTransferred == 0):
+            print("Failed sending data")
         else:
-            print("No data received")
+            (resp, address) = sock.recvfrom()
+            if(resp != None and address != None):
+                print("Response: from ip:" + address[0] + ", port: " + str(address[1]) + ", data: " + str(binascii.hexlify(bytearray(resp))))
+            else:
+                print("No data received")
     else:
         print("No address resolved")
 
