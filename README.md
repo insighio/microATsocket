@@ -50,14 +50,9 @@ sock.close()
 ## Example with URL resolve
 
 The socket.getaddrinfo implementation has a deviation from the typical usocket.getaddrinfo.
-In microAtsocket it need to be called on the 
-Whereas the usocket implementation of getaddrinfo is
-The socket.getaddrinfo implementation included
+In microAtsocket it need to be called on the instance of the socket instead of calling a function in the module.
 
 ```python
-import microATsocket as socket
-from network import LTE
-
 lte = LTE()
 
 # attach to network
@@ -81,9 +76,21 @@ sock.sendto(data, resolvedIPs[0][-1])
 (resp, address) = sock.recvfrom()
 print("Response: from ip:" + address[0] + ", port: " + str(address[1]) + ", data: " + str(binascii.hexlify(bytearray(resp))))
 
-# close socket
-sock.close()
+```
 
+## Example with custom DNS server
+
+```python
+# create socket instance providing the instance of the LTE modem
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.setModemInstance(lte)
+
+# the first argument is ignored, though it is added for API compatibility
+sock.dnsserver(0, "8.8.4.4")
+# getaddrinfo needs to be called on the instance of socket
+resolvedIPs = sock.getaddrinfo("google.com", 5683)
+
+print("Resolved IP: " + str(resolvedIPs[0][-1]))
 ```
 
 For more detailed examples, take a look at the [examples folder](https://github.com/insighio/microATsocket/tree/master/examples) of the repository.
