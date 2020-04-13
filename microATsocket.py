@@ -36,7 +36,7 @@ def get_first_available_socket():
         if(val == 0):
             sockets_in_use[idx] = 1
             return idx
-    return 0
+    return None
 
 def release_socket(idx):
     if(idx < 1 or idx > len(sockets_in_use)):
@@ -75,14 +75,16 @@ class socket:
         self.port = None
         self.localport = LOCAL_PORT_DEFAULT
         self.hasExplicitLocalPort = False
-        self.socketid = None
         self.family = family
         self.type = type
-        self.recvRegex = "\+SQNSRING: (\\d+),(\\d+)"
+        #self.recvRegex = "\+SQNSRING: (\\d+),(\\d+)"
+        self.recvRegex = "\+SQNSRING: (\\d+)"
         self.contentFormat = socket.SOCKET_MESSAGE_FORMAT.SOCKET_MESSAGE_BYTE
         self.dns_server = DNS_SERVER_IP
         if(family == AF_INET6):
             self.dns_server = DNS_SERVER_IPV6
+        self.socketid = get_first_available_socket()
+        self.isconnected = False
 
     def getaddrinfo(self, host, port):
         import dns_query
@@ -104,13 +106,15 @@ class socket:
             responseList.append((family, SOCK_STREAM, 0, '', (res[0], port)))
         return responseList
 
-    def close(self):
+    def close(self, do_release_socket=False):
         if self.socketid != None:
-            global sockets_in_use
-            self.sendAtCommand('AT+SQNSH=' + str(self.socketid))
+            response = self.sendAtCommand('AT+SQNSH=' + str(self.socketid))
+            if(response.find("OK") != -1):
+                self.isconnected = False
             utime.sleep_ms(2000)
-            release_socket(self.socketid)
-            self.reset()
+            if do_release_socket:
+                release_socket(self.socketid)
+                self.reset()
 
     def bind(self, address):
         self.localport = address[1]
@@ -142,7 +146,7 @@ class socket:
 
         return len(bytes)
 
-    def recvfrom(self, bufsize=-1):
+    def recvfrom(self, bufsize=1024):
         # send empty space to wait for an incoming notification from SQNSRING
         badResult = (None, None)
 
@@ -150,7 +154,7 @@ class socket:
             print("Failed to open socket, aborting.")
             return badResult
 
-        resp = self.sendAtCommand(" ")
+        resp = self.sendAtCommand("Pycom_Dummy")
 
         # search for the URC
         match = ure.search(self.recvRegex, resp)
@@ -163,7 +167,7 @@ class socket:
 
         # +SQNSRING -> get notified of incoming data
         # +SQNSRECV -> read data
-        command = "AT+SQNSRECV=" + match.group(1) + "," + match.group(2)
+        command = "AT+SQNSRECV=" + match.group(1) + "," + str(bufsize)
         resp2 = self.sendAtCommand(command)
 
         if(resp2.find("OK") == -1):
@@ -214,20 +218,20 @@ class socket:
             self.contentFormat = socket.SOCKET_MESSAGE_FORMAT.SOCKET_MESSAGE_ASCII
 
     def open(self, ip, port):
-        selfSockIsNone = self.socketid != None
-        if(self.ip == ip or self.port == port and selfSockIsNone):
+        if(self.ip == ip or self.port == port and self.isconnected):
             return True
 
         if(not has_available_sockets()):
             raise Exception("max number of sockets reached")
 
-        if(self.ip == None and self.port == None) or (self.socketid != None):
+        #if(self.isconnected):
+        self.close()
+
+        if(self.ip == None and self.port == None):
             self.ip = ip
             self.port = port
-            self.socketid = None
-            self.close()
-
-        self.socketid = get_first_available_socket()
+            if(self.socketid == None):
+                self.socketid = get_first_available_socket()
 
         if not self.hasExplicitLocalPort:
             self.localport = LOCAL_PORT_DEFAULT + (int.from_bytes(uos.urandom(2),"big") % 2000)
@@ -251,17 +255,17 @@ class socket:
         if(resp.find(configuration) == -1):
             self.sendAtCommand('AT+SQNSCFGEXT='+configuration)
 
+        self.sendAtCommand('AT+SQNSI='+ str(self.socketid))
+        self.sendAtCommand('AT+CEREG?')
+        self.sendAtCommand('AT+CFUN?')
+        self.sendAtCommand('AT+CGATT?')
+
         # <socket ID>, <UDP>, <remote port>, <remote IP>,0,<local port>, <online mode>
-        command = 'AT+SQNSD=' + str(self.socketid) + ',1,' + str(port) + ',"' + ip + '",0,' + str(self.localport) + ',1'
+        command = 'AT+SQNSD=' + str(self.socketid) + ',1,' + str(port) + ',"' + ip + '",0,' + str(self.localport) + ',1,0'
         response = self.sendAtCommand(command, 4)
-        if(response.find("OK") != -1):
-            self.socketid = 1
-        else:
-            self.socketid = None
+        self.isconnected = (response.find("OK") != -1)
 
-        status = (self.socketid != None)
-
-        return status
+        return self.isconnected
 
     ######################################################################
     # Private functions
@@ -280,9 +284,7 @@ class socket:
         cnt = 0
         while True:
             cnt += 1
-            #print("[AT] => " + str(command))
             response = self.modem.send_at_cmd(command)
-            #print("[AT] <= " + response)
 
             if(response.find("OK") != -1 or cnt == max_tries):
                 break
