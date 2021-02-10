@@ -24,9 +24,9 @@ def attachNBIoT(timeout):
     start_time_activation = utime.ticks_ms()
 
     lte.send_at_cmd('AT+CFUN=1')
-    while not lte.isattached() and (utime.ticks_ms()-start_time_activation < timeout):
+    while not lte.isattached() and (utime.ticks_ms() - start_time_activation < timeout):
         print(".", end="")
-        machine.idle()
+        utime.sleep_ms(10)
 
     print("")
     return lte.isattached()
