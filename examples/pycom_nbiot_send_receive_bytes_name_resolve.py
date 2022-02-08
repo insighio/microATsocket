@@ -10,7 +10,7 @@ _NBIOT_APN="iot"
 
 # attach to network
 # IMPORTANT: note that we do not connect. we need to attach instead.
-def attachNBIoT(timeout):
+def attachCellular(timeout):
     print("Connecting LTE...")
     if lte.isattached():
         return True
@@ -36,7 +36,7 @@ lte = LTE()
 #lte.debug(status=True)
 lte.init()
 
-attached = attachNBIoT(_NBIOT_MAX_CONNECTION_TIMEOUT_MSEC)
+attached = attachCellular(_NBIOT_MAX_CONNECTION_TIMEOUT_MSEC)
 print("LTE ok: " + str(attached))
 
 if(attached):

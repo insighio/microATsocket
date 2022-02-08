@@ -110,7 +110,7 @@ Since in this socket implementation, all data are transferred through AT command
 
 Moreover, in case we require to send byte data instead of ASCII messages, the bytes need to be expressed into a HEX string. In this case each byte is represented by 2 HEX characters thus limiting our maximum data per transmission from 124 character to 62 bytes. This approach is the default behavior of MicroATSocket to be able to handle any data provided.
 
-To enable the transmission of ASCII data and increase the limit for 62 bytes to 124 characters, after creating the instance of the socket, set the message format of the socket to **SOCKET_MESSAGE_ASCII** (check [examples/pycom_nbiot_send_receive_text.py](https://github.com/insighio/microATsocket/blob/master/examples/pycom_nbiot_send_receive_text.py))
+To enable the transmission of ASCII data and increase the limit for 62 bytes to 124 characters, after creating the instance of the socket, set the message format of the socket to **SOCKET_MESSAGE_ASCII** (check [examples/pycom_cellular_send_receive_text.py](https://github.com/insighio/microATsocket/blob/master/examples/pycom_cellular_send_receive_text.py))
 
 ```python
 socket = MicroATSocket(lte)
