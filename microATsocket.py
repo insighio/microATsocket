@@ -295,7 +295,7 @@ class socket:
 
     # This function is not supported yet by the stop Pycom firmware
     def sendAtCommandWithTimeout(self, command, timeout, max_tries=1):
-        if self.modem == None:
+        if self.modem is None:
             raise Exception("No modem instance assigned")
 
         response = ""
